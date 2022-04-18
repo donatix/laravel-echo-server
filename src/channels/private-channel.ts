@@ -84,6 +84,17 @@ export class PrivateChannel {
             options.headers = this.prepareHeaders(socket, options);
             let body;
 
+            let bearerAuthorizationToken = options.headers['Authorization'];
+            let token = bearerAuthorizationToken.toString().split(' ');
+
+            if(token === null) {
+                reject({reason: `The token that is provided is null. - Socket Id: ${socket.id}, Channel: ${options.form.channel_name}`, status:0})
+
+                if(this.options.devMode) {
+                     Log.error(`[${new Date().toISOString()}] - Error authenticating ${socket.id} with null token for ${options.form.channel_name}`);
+                }
+            }
+
             this.request.post(options, (error, response, body, next) => {
                 if (error) {
                     if (this.options.devMode) {

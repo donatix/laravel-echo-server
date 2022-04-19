@@ -1,7 +1,7 @@
 let request = require('request');
 let url = require('url');
-import { Channel } from './channel';
-import { Log } from './../log';
+import jwt_decode from "jwt-decode";
+import { Log } from '../log';
 
 export class PrivateChannel {
     /**
@@ -9,12 +9,18 @@ export class PrivateChannel {
      */
     constructor(private options: any) {
         this.request = request;
+        this.timeNow = new Date().getTime();
     }
 
     /**
      * Request client.
      */
     private request: any;
+
+    /**
+     * Current time
+     */
+    private readonly timeNow: number;
 
     /**
      * Send authentication request to application server.
@@ -83,47 +89,68 @@ export class PrivateChannel {
         return new Promise<any>((resolve, reject) => {
             options.headers = this.prepareHeaders(socket, options);
             let body;
+            let errFound = false;
 
             let bearerAuthorizationToken = options.headers['Authorization'];
-            let token = bearerAuthorizationToken.toString().split(' ');
-
-            if(token === null) {
+            let authorizationContent = bearerAuthorizationToken.toString().split(' ');
+            let token = authorizationContent[1];
+            if(token === null || token == '' || token == 'null') {
                 reject({reason: `The token that is provided is null. - Socket Id: ${socket.id}, Channel: ${options.form.channel_name}`, status:0})
 
                 if(this.options.devMode) {
-                     Log.error(`[${new Date().toISOString()}] - Error authenticating ${socket.id} with null token for ${options.form.channel_name}`);
+                    Log.error(`The token is invalid for authorization requests. (Token is null) - Socket Id: ${socket.id}, Channel: ${options.form.channel_name}`) ;
                 }
+               errFound = true;
             }
 
-            this.request.post(options, (error, response, body, next) => {
-                if (error) {
-                    if (this.options.devMode) {
-                        Log.error(`[${new Date().toISOString()}] - Error authenticating ${socket.id} for ${options.form.channel_name}`);
-                        Log.error(error);
-                    }
+            let decodedObjOfTheToken = jwt_decode(token);
+            // @ts-ignore
+            let expirationTime = (decodedObjOfTheToken.exp * 1000)
 
-                    reject({ reason: 'Error sending authentication request.', status: 0 });
-                } else if (response.statusCode !== 200) {
-                    if (this.options.devMode) {
-                        Log.warning(`[${new Date().toISOString()}] - ${socket.id} could not be authenticated to ${options.form.channel_name}`);
-                        Log.error(response.body);
-                    }
+            if(expirationTime < this.timeNow) {
+                reject({reason: `The token is invalid for authorization requests. - Socket Id: ${socket.id}, Channel: ${options.form.channel_name}`, status:0});
 
-                    reject({ reason: 'Client can not be authenticated, got HTTP status ' + response.statusCode, status: response.statusCode });
-                } else {
-                    if (this.options.devMode) {
-                        Log.info(`[${new Date().toISOString()}] - ${socket.id} authenticated for: ${options.form.channel_name}`);
-                    }
-
-                    try {
-                        body = JSON.parse(response.body);
-                    } catch (e) {
-                        body = response.body
-                    }
-
-                    resolve(body);
+                if(this.options.devMode) {
+                   Log.error(`The token is invalid for authorization requests. - Socket Id: ${socket.id}, Channel: ${options.form.channel_name}`) ;
                 }
-            });
+
+                errFound = true;
+            }
+
+            if(!errFound) {
+                this.request.post(options, (error, response, body, next) => {
+                    if (error) {
+                        if (this.options.devMode) {
+                            Log.error(`[${new Date().toISOString()}] - Error authenticating ${socket.id} for ${options.form.channel_name}`);
+                            Log.error(error);
+                        }
+
+                        reject({reason: 'Error sending authentication request.', status: 0});
+                    } else if (response.statusCode !== 200) {
+                        if (this.options.devMode) {
+                            Log.warning(`[${new Date().toISOString()}] - ${socket.id} could not be authenticated to ${options.form.channel_name}`);
+                            Log.error(response.body);
+                        }
+
+                        reject({
+                            reason: 'Client can not be authenticated, got HTTP status ' + response.statusCode,
+                            status: response.statusCode
+                        });
+                    } else {
+                        if (this.options.devMode) {
+                            Log.info(`[${new Date().toISOString()}] - ${socket.id} authenticated for: ${options.form.channel_name}`);
+                        }
+
+                        try {
+                            body = JSON.parse(response.body);
+                        } catch (e) {
+                            body = response.body
+                        }
+
+                        resolve(body);
+                    }
+                });
+            }
         });
     }
 

@@ -1,6 +1,6 @@
 {
-	"authHost": "http://e-hallpass-v2.test",
-	"authEndpoint": "/api/v5/broadcasting/auth",
+	"authHost": null,
+	"authEndpoint": null,
 	"clients": [],
 	"database": "redis",
 	"databaseConfig": {

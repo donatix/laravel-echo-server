@@ -89,11 +89,12 @@ export class PrivateChannel {
         return new Promise<any>((resolve, reject) => {
             options.headers = this.prepareHeaders(socket, options);
             let body;
-            let errFound = false;
+            let errFound: boolean = false;
 
             let bearerAuthorizationToken = options.headers['Authorization'];
             let authorizationContent = bearerAuthorizationToken.toString().split(' ');
             let token = authorizationContent[1];
+
             if(token === null || token == '' || token == 'null') {
                 reject({reason: `The token that is provided is null. - Socket Id: ${socket.id}, Channel: ${options.form.channel_name}`, status:0})
 
@@ -104,6 +105,7 @@ export class PrivateChannel {
             }
 
             let decodedObjOfTheToken = jwt_decode(token);
+
             // @ts-ignore
             let expirationTime = (decodedObjOfTheToken.exp * 1000)
 

@@ -10,3 +10,17 @@
 var LaravelEchoServerCli = require('../dist/cli');
 
 process.title = 'laravel-echo-server';
+
+const tracer = require('dd-trace').init({
+    logInjection: true, // Connect logs and traces
+    analytics: true, // enable APM analytics
+    runtimeMetrics: true, //Enable runtime metrics
+    env: "production",
+    service: "ehp-v2-ws",
+    enabled: true,
+    debug: true,
+    tags: {
+        env: "production",
+        service: "ehp-v2-ws"
+    },
+});
